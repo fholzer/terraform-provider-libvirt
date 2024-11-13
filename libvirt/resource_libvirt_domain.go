@@ -352,6 +352,30 @@ func resourceLibvirtDomain() *schema.Resource {
 							Type:     schema.TypeString,
 							Optional: true,
 							Computed: true,
+							ForceNew: true,
+						},
+						"model": {
+							Type:     schema.TypeList,
+							MaxItems: 1,
+							Optional: true,
+							Computed: true,
+							ForceNew: true,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"name": {
+										Type:     schema.TypeString,
+										Optional: true,
+										Computed: true,
+										ForceNew: true,
+									},
+									"fallback": {
+										Type:     schema.TypeString,
+										Optional: true,
+										Computed: true,
+										ForceNew: true,
+									},
+								},
+							},
 						},
 					},
 				},
@@ -497,6 +521,17 @@ func resourceLibvirtDomainCreate(ctx context.Context, d *schema.ResourceData, me
 	if cpuMode, ok := d.GetOk("cpu.0.mode"); ok {
 		domainDef.CPU = &libvirtxml.DomainCPU{
 			Mode: cpuMode.(string),
+		}
+	}
+	if cpuModel, ok := d.GetOk("cpu.0.model.0.name"); ok {
+		if domainDef.CPU == nil {
+			domainDef.CPU = &libvirtxml.DomainCPU{}
+		}
+		domainDef.CPU.Model = &libvirtxml.DomainCPUModel{
+			Value: cpuModel.(string),
+		}
+		if cpuModelFallback, ok := d.GetOk("cpu.0.model.0.fallback"); ok {
+			domainDef.CPU.Model.Fallback = cpuModelFallback.(string)
 		}
 	}
 
@@ -841,6 +876,16 @@ func resourceLibvirtDomainRead(ctx context.Context, d *schema.ResourceData, meta
 		var cpus []map[string]interface{}
 		if domainDef.CPU.Mode != "" {
 			cpu["mode"] = domainDef.CPU.Mode
+		}
+		if domainDef.CPU.Model.Value != "" {
+			model := make(map[string]interface{})
+			var models []map[string]interface{}
+			model["name"] = domainDef.CPU.Model.Value
+			if domainDef.CPU.Model.Fallback != "" {
+				model["fallback"] = domainDef.CPU.Model.Fallback
+			}
+			models = append(models, model)
+			cpu["model"] = models
 		}
 		if len(cpu) > 0 {
 			cpus = append(cpus, cpu)
